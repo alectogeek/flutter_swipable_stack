@@ -70,6 +70,7 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     _controller = SwipableStackController()..addListener(_listenController);
+    // _controller.
   }
 
   static const double _bottomPadding = 100;
@@ -86,6 +87,7 @@ class _HomeState extends State<Home> {
           children: [
             SwipableStack(
               controller: _controller,
+              disableSwipe: false,
               onSwipeCompleted: (index, direction) {
                 print('$index, $direction');
               },
@@ -131,7 +133,6 @@ class _HomeState extends State<Home> {
                 );
               },
               builder: (context, index, constraints) {
-                final imagePath = _images[index % _images.length];
                 return Padding(
                   padding: EdgeInsets.only(
                     top: _topPadding,
@@ -140,8 +141,22 @@ class _HomeState extends State<Home> {
                   child: Center(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.asset(
-                        imagePath,
+                      child: Container(
+                        color: [
+                          Colors.red,
+                          Colors.green,
+                          Colors.grey,
+                          Colors.yellow,
+                        ].elementAt(index % 4),
+                        child: Center(
+                          child: Text(
+                            index.toString(),
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -157,9 +172,7 @@ class _HomeState extends State<Home> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _BottomButton(
-                      color: _controller.canRewind
-                          ? Colors.amberAccent
-                          : Colors.grey,
+                      color: _controller.canRewind ? Colors.amberAccent : Colors.grey,
                       child: const Icon(Icons.refresh),
                       onPressed: _controller.canRewind
                           ? () {
