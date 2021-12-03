@@ -90,6 +90,14 @@ class SwipableStackController extends ChangeNotifier {
     );
   }
 
+  Future<void> showHalfSwipe({required SwipeDirection swipeDirection}) async {
+    await _swipableStackStateKey.currentState?._showHalfSwipe(swipeDirection: swipeDirection);
+  }
+
+  Future<void> cancelSwipe() async {
+    await _swipableStackStateKey.currentState?._cancelSwipe();
+  }
+
   /// Rewind the most recent action.
   ///
   /// You can change animation speed by setting [duration].
@@ -808,6 +816,57 @@ class _SwipableStackState extends State<SwipableStack>
     ).catchError((dynamic c) {
       animation.removeListener(animate);
       this.currentSession = null;
+    });
+  }
+
+
+  Future<void> _showHalfSwipe({
+    required SwipeDirection swipeDirection,
+  }) async {
+    if (currentSession != null) {
+      await _cancelSwipe();
+    }
+    if (!canAnimationStart) {
+      return;
+    }
+
+    final startPosition = SwipeSession.notMoving();
+    currentSession = startPosition;
+    final distToAssist = _distanceToAssist(
+      swipeDirection: swipeDirection,
+      context: context,
+      difference: startPosition.difference,
+    );
+    _swipeAnimationController.duration = _getSwipeAnimationDuration(
+          distToAssist: distToAssist,
+          swipeDirection: swipeDirection,
+          difference: startPosition.difference,
+        );
+
+    final animation = _swipeAnimationController.swipeAnimation(
+      startPosition: startPosition.currentPosition,
+      endPosition:
+      _offsetToAssist(
+        distToAssist: distToAssist,
+        difference: swipeDirection.defaultOffset,
+        context: context,
+        swipeDirection: swipeDirection,
+      ).scale(swipeDirection.isHorizontal ? 0.2 : 1, swipeDirection.isHorizontal ? 1 : 0.1),
+    );
+
+    void animate() {
+      _animatePosition(animation);
+    }
+
+    animation.addListener(animate);
+    await _swipeAnimationController.forward(from: 0).then(
+          (_) {
+        animation.removeListener(animate);
+
+      },
+    ).catchError((dynamic c) {
+      animation.removeListener(animate);
+      currentSession = null;
     });
   }
 
