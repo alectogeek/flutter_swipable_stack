@@ -248,6 +248,7 @@ class SwipableStack extends StatefulWidget {
     SwipableStackController? controller,
     this.onSwipeCompleted,
     this.onWillMoveNext,
+    this.onSwipeCancel,
     this.overlayBuilder,
     this.horizontalSwipeThreshold = _defaultHorizontalSwipeThreshold,
     this.verticalSwipeThreshold = _defaultVerticalSwipeThreshold,
@@ -255,6 +256,7 @@ class SwipableStack extends StatefulWidget {
     this.viewFraction = _defaultViewFraction,
     this.swipeAssistDuration = _defaultSwipeAssistDuration,
     this.disableSwipe = false,
+    this.allowTopSwipe = false,
 
   })  : controller = controller ?? SwipableStackController(),
         assert(0 <= viewFraction && viewFraction <= 1),
@@ -277,6 +279,9 @@ class SwipableStack extends StatefulWidget {
   /// If this Callback returns false, the action will be canceled.
   final OnWillMoveNext? onWillMoveNext;
 
+  /// Callback called is user cancels the Swipe action.
+  final VoidCallback? onSwipeCancel;
+
   /// Builder for displaying an overlay on the most foreground card.
   final SwipableStackOverlayBuilder? overlayBuilder;
 
@@ -298,6 +303,7 @@ class SwipableStack extends StatefulWidget {
   final Duration swipeAssistDuration;
 
   final bool disableSwipe;
+  final bool allowTopSwipe;
 
   static const double _defaultHorizontalSwipeThreshold = 0.44;
   static const double _defaultVerticalSwipeThreshold = 0.32;
@@ -614,20 +620,31 @@ class _SwipableStackState extends State<SwipableStack>
               ..reset();
           }
           final updated = currentSession?.copyWith(
-            currentPosition: Offset(d.globalPosition.dx, currentSession?.startPosition.dy ?? 0),
+            currentPosition: widget.allowTopSwipe
+                // ? d.globalPosition
+                ? Offset(
+                    d.globalPosition.dx,
+                // d.globalPosition.dy
+                    (currentSession?.startPosition.dy != null && currentSession!.startPosition.dy >= d.globalPosition.dy)
+                        ? d.globalPosition.dy
+                        : currentSession!.startPosition.dy,
+                  )
+                : Offset(
+                    d.globalPosition.dx,
+                    currentSession?.startPosition.dy ?? 0,
+                  ),
             // currentPosition: d.globalPosition,
           );
           currentSession = updated ??
-              SwipeSession(
+              ((currentSession?.startPosition.dy != null && currentSession!.startPosition.dy >= d.globalPosition.dy) ? SwipeSession(
+            localPosition: d.localPosition,
+            startPosition: d.globalPosition,
+            currentPosition: d.globalPosition,
+          ) : SwipeSession(
                 localPosition: Offset(d.localPosition.dx, 0),
                 startPosition: Offset(d.globalPosition.dx, 0),
                 currentPosition: Offset(d.globalPosition.dx, 0),
-              );
-              // SwipeSession(
-              //   localPosition: d.localPosition,
-              //   startPosition: d.globalPosition,
-              //   currentPosition: d.globalPosition,
-              // );
+              ));
         },
         onPanEnd: (d) {
           widget.controller.isUserDraggingCard = false;
@@ -657,6 +674,9 @@ class _SwipableStackState extends State<SwipableStack>
         },
         onPanCancel: () {
           widget.controller.isUserDraggingCard = false;
+          if (widget.onSwipeCancel != null) {
+            widget.onSwipeCancel!();
+          }
         },
         child: child,
       ),
@@ -705,7 +725,6 @@ class _SwipableStackState extends State<SwipableStack>
   }
 
   Future<void> _cancelSwipe({Duration? duration}) async {
-
     if (duration != null) {
       _swipeCancelAnimationController.duration = duration;
     } else {
@@ -730,6 +749,9 @@ class _SwipableStackState extends State<SwipableStack>
       (_) {
         cancelAnimation.removeListener(_animate);
         this.currentSession = null;
+        if (widget.onSwipeCancel != null) {
+          widget.onSwipeCancel!();
+        }
       },
     ).catchError((dynamic c) {
       cancelAnimation.removeListener(_animate);
@@ -890,13 +912,14 @@ class _SwipableStackState extends State<SwipableStack>
 
     final animationForward = _swipeAnimationController.swipeAnimation(
       startPosition: startPosition.currentPosition,
-      endPosition: Offset(-20, 0),
-      // _offsetToAssist(
-      //   distToAssist: distToAssist,
-      //   difference: swipeDirection.defaultOffset,
-      //   context: context,
-      //   swipeDirection: swipeDirection,
-      // ),
+      endPosition:
+      // Offset(-20, 0),
+      _offsetToAssist(
+        distToAssist: distToAssist,
+        difference: swipeDirection.defaultOffset,
+        context: context,
+        swipeDirection: swipeDirection,
+      ),
     );
 
     void animate() {
